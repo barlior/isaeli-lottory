@@ -1,0 +1,48 @@
+# Israeli Lotto (Pais) — Rules file
+# Learned from historical draws (current format: 6 from 1–37, strong 1–7).
+# Data source: lotto-history.csv (in israeli-lotto/data/ or ~/Downloads/, or set LOTTO_CSV).
+#
+# Usage:
+#   - python -m lotto (or lotto-generate) reads rules/LOTTO_RULES.json and generates sets.
+#   - lotto-validate n1 n2 n3 n4 n5 n6 strong — validates a single set.
+#   - lotto-patterns [path] re-analyzes the CSV to refresh pattern stats.
+
+game:
+  name: "Israeli Lotto (Pais)"
+  main_pool: [1, 37]          # 6 numbers from this range
+  strong_pool: [1, 7]         # 1 number from this range
+  main_count: 6
+  strong_count: 1
+
+# --- User / strategy preferences ---
+rules:
+  no_consecutive_main_numbers: true
+  sum_6_mains:
+    enabled: true
+    min: 75
+    max: 153
+    target_mean: 113
+  odd_count:
+    enabled: true
+    min: 2
+    max: 4
+  spread:
+    enabled: true
+    min: 19
+    max: 33
+  low_high_balance:
+    enabled: false
+    low_count_min: 2
+    low_count_max: 4
+
+# --- Learned statistics (reference only) ---
+patterns_learned:
+  consecutive:
+    draws_with_consecutive_pct: 59.9
+  sum_6_mains: { min: 36, max: 187, mean: 113.2, p5: 75, p95: 153 }
+  odd_count_per_draw: { most_common: 3 }
+  spread: { min: 7, max: 36, mean: 26.8, p10: 19, p90: 33 }
+strategy:
+  recent_draws_window: 500
+  hot_weight: 1.0
+  due_weight: 0.5

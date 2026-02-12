@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "israeli-lotto"
+version = "0.1.0"
+description = "Israeli Lotto (Pais) — generate and validate sets from history"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.scripts]
+lotto-generate = "lotto.analysis:main"
+lotto-validate = "lotto.validate_cli:main"
+lotto-patterns = "lotto.patterns_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lotto*"]
