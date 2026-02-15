@@ -15,8 +15,10 @@ game:
   strong_count: 1
 
 # --- User / strategy preferences ---
+# no_consecutive: false = allow consecutives (60% of real draws have them)
+# spread: 7-36 = full historical range (draw #3898 had spread 16)
 rules:
-  no_consecutive_main_numbers: true
+  no_consecutive_main_numbers: false
   sum_6_mains:
     enabled: true
     min: 75
@@ -28,8 +30,8 @@ rules:
     max: 4
   spread:
     enabled: true
-    min: 19
-    max: 33
+    min: 7
+    max: 36
   low_high_balance:
     enabled: false
     low_count_min: 2

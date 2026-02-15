@@ -1,5 +1,6 @@
 """
-Generate lotto sets from history using hot/due scoring; apply rules from rules/LOTTO_RULES.json.
+Generate lotto sets from history using hot/due scoring + all-time frequency (probability).
+Apply rules from rules/LOTTO_RULES.json.
 """
 import json
 import random
@@ -53,25 +54,35 @@ def analyze(draws: list, recent_draws: int = RECENT_DRAWS) -> dict:
 def score_main(num: int, stats: dict) -> float:
     recent = stats["main_recent"][num]
     last_seen = stats["main_last_seen"][num]
+    freq = stats["main_freq"][num]
+    n = stats["num_draws"]
+    # All-time probability: freq / expected (expected = n * 6/37 per number)
+    expected = n * 6 / 37 if n else 1
+    prob_score = (freq / expected) * 15  # boosted: historically frequent numbers favored
     hot_score = recent
-    due_score = min(last_seen, 100)
-    return hot_score + due_score * 0.5
+    due_score = min(last_seen, 100) * 0.5
+    return hot_score + due_score + prob_score
 
 
 def score_strong(num: int, stats: dict) -> float:
     recent = stats["strong_recent"][num]
     last_seen = stats["strong_last_seen"][num]
-    return recent + min(last_seen, 50) * 0.5
+    freq = stats["strong_freq"][num]
+    n = stats["num_draws"]
+    # All-time probability: freq / expected (expected = n * 1/7 per number)
+    expected = n / 7 if n else 1
+    prob_score = (freq / expected) * 8  # boosted for strong pool
+    return recent + min(last_seen, 50) * 0.5 + prob_score
 
 
 def is_consecutive_with_any(num: int, chosen: list[int]) -> bool:
     return (num - 1) in chosen or (num + 1) in chosen
 
 
-def pick_main_weights(stats: dict, exclude: list[int]) -> int | None:
+def pick_main_weights(stats: dict, exclude: list[int], no_consecutive: bool = False) -> int | None:
     candidates = [
         m for m in MAIN_POOL
-        if m not in exclude and not is_consecutive_with_any(m, exclude)
+        if m not in exclude and (not no_consecutive or not is_consecutive_with_any(m, exclude))
     ]
     if not candidates:
         return None
@@ -85,7 +96,7 @@ def pick_main_weights(stats: dict, exclude: list[int]) -> int | None:
     return candidates[-1]
 
 
-def random_main_no_consecutive() -> list[int] | None:
+def random_main(no_consecutive: bool = False) -> list[int] | None:
     for _ in range(200):
         chosen = []
         pool = list(MAIN_POOL)
@@ -93,7 +104,7 @@ def random_main_no_consecutive() -> list[int] | None:
         for m in pool:
             if len(chosen) >= 6:
                 break
-            if m not in chosen and not is_consecutive_with_any(m, chosen):
+            if m not in chosen and (not no_consecutive or not is_consecutive_with_any(m, chosen)):
                 chosen.append(m)
         if len(chosen) == 6:
             return sorted(chosen)
@@ -111,10 +122,10 @@ def pick_strong_weighted(stats: dict) -> int:
     return random.choice(STRONG_POOL)
 
 
-def generate_one_set(stats: dict) -> tuple[list[int], int] | None:
+def generate_one_set(stats: dict, no_consecutive: bool = False) -> tuple[list[int], int] | None:
     chosen = []
     for _ in range(6):
-        m = pick_main_weights(stats, chosen)
+        m = pick_main_weights(stats, chosen, no_consecutive=no_consecutive)
         if m is None:
             return None
         chosen.append(m)
@@ -167,7 +178,7 @@ def main(num_sets: int = 8, csv_path: Path | None = None, seed: int | None = 42)
     print(f"Loaded {len(draws)} draws in current format (6 from 1-37, strong 1-7).")
 
     stats = analyze(draws)
-    print(f"Analyzed last {RECENT_DRAWS} draws for 'recent' frequency.")
+    print(f"Analyzed last {RECENT_DRAWS} draws + all-time frequency (probability).")
 
     rules = load_rules()
     rules_dir = get_rules_dir()
@@ -176,25 +187,26 @@ def main(num_sets: int = 8, csv_path: Path | None = None, seed: int | None = 42)
 
     if seed is not None:
         random.seed(seed)
+    no_consecutive = rules.get("rules", {}).get("no_consecutive_main_numbers", False) if rules else False
     print("\n---", num_sets, "sets (6 main + 1 strong) ---\n")
     max_attempts = 200
 
     for i in range(num_sets):
         mains, strong = None, None
         for _ in range(max_attempts):
-            result = generate_one_set(stats)
+            result = generate_one_set(stats, no_consecutive=no_consecutive)
             if result is not None and passes_rules(result[0], result[1], rules):
                 mains, strong = result
                 break
         if mains is None:
             for _ in range(100):
-                cand = random_main_no_consecutive()
+                cand = random_main(no_consecutive=no_consecutive)
                 if cand and passes_rules(cand, 1, rules):
                     mains = cand
                     strong = pick_strong_weighted(stats)
                     break
             if mains is None:
-                mains = random_main_no_consecutive()
+                mains = random_main(no_consecutive=no_consecutive)
             mains = mains if mains else sorted(random.sample(MAIN_POOL, 6))
             strong = strong if strong is not None else pick_strong_weighted(stats)
         print(f"Set {i+1}:  {mains}  |  Strong: {strong}")
